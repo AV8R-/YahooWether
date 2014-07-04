@@ -19,7 +19,7 @@
             </objects>
             <point key="canvasLocation" x="-1" y="64"/>
         </scene>
-        <!--Master View Controller - Wether-->
+        <!--Master View Controller - Weather-->
         <scene sceneID="WyL-gP-gsU">
             <objects>
                 <viewController id="ACh-uU-RDc" customClass="YWMasterViewController" sceneMemberID="viewController">
@@ -171,7 +171,7 @@
                         </subviews>
                         <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="calibratedWhite"/>
                     </view>
-                    <navigationItem key="navigationItem" title="Wether" id="Dj5-X5-TzQ">
+                    <navigationItem key="navigationItem" title="Weather" id="Dj5-X5-TzQ">
                         <barButtonItem key="leftBarButtonItem" title="Refresh" id="gSo-VY-je8">
                             <connections>
                                 <action selector="refresh:" destination="ACh-uU-RDc" id="jvs-H6-78D"/>
