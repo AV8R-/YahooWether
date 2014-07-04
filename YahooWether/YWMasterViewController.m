@@ -7,28 +7,42 @@
 //
 
 #import "YWMasterViewController.h"
-
-#import "YWDetailViewController.h"
+#import "YWAppDelegate.h"
+#import "Forecast.h"
+#import "UIImageView+AFNetworking.h"
 
 @interface YWMasterViewController ()
-- (void)configureCell:(UITableViewCell *)cell atIndexPath:(NSIndexPath *)indexPath;
+
 @end
 
 @implementation YWMasterViewController
+@synthesize managedObjectContext;
+@synthesize items = items_;
+@synthesize todayForecast = todayForecast_;
+@synthesize tomorrowForecast = tomorrowForecast_;
 
-- (void)awakeFromNib
+- (id)initWithNibName:(NSString *)nibNameOrNil bundle:(NSBundle *)nibBundleOrNil
 {
-    [super awakeFromNib];
+    self = [super initWithNibName:nibNameOrNil bundle:nibBundleOrNil];
+    if (self) {
+        // Custom initialization
+    }
+    return self;
 }
 
 - (void)viewDidLoad
 {
     [super viewDidLoad];
-	// Do any additional setup after loading the view, typically from a nib.
-    self.navigationItem.leftBarButtonItem = self.editButtonItem;
+    // Do any additional setup after loading the view.
+    
+    
+}
 
-    UIBarButtonItem *addButton = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAdd target:self action:@selector(insertNewObject:)];
-    self.navigationItem.rightBarButtonItem = addButton;
+-(void)viewWillAppear:(BOOL)animated
+{
+    [self loadData];
+    [self configureUI];
+    [self loadWether];
 }
 
 - (void)didReceiveMemoryWarning
@@ -37,186 +51,188 @@
     // Dispose of any resources that can be recreated.
 }
 
-- (void)insertNewObject:(id)sender
-{
-    NSManagedObjectContext *context = [self.fetchedResultsController managedObjectContext];
-    NSEntityDescription *entity = [[self.fetchedResultsController fetchRequest] entity];
-    NSManagedObject *newManagedObject = [NSEntityDescription insertNewObjectForEntityForName:[entity name] inManagedObjectContext:context];
-    
-    // If appropriate, configure the new managed object.
-    // Normally you should use accessor methods, but using KVC here avoids the need to add a custom class to the template.
-    [newManagedObject setValue:[NSDate date] forKey:@"timeStamp"];
-    
-    // Save the context.
-    NSError *error = nil;
-    if (![context save:&error]) {
-         // Replace this implementation with code to handle the error appropriately.
-         // abort() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development. 
-        NSLog(@"Unresolved error %@, %@", error, [error userInfo]);
-        abort();
-    }
-}
+/*
+#pragma mark - Navigation
 
-#pragma mark - Table View
-
-- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView
-{
-    return [[self.fetchedResultsController sections] count];
-}
-
-- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section
-{
-    id <NSFetchedResultsSectionInfo> sectionInfo = [self.fetchedResultsController sections][section];
-    return [sectionInfo numberOfObjects];
-}
-
-- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
-{
-    UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"Cell" forIndexPath:indexPath];
-    [self configureCell:cell atIndexPath:indexPath];
-    return cell;
-}
-
-- (BOOL)tableView:(UITableView *)tableView canEditRowAtIndexPath:(NSIndexPath *)indexPath
-{
-    // Return NO if you do not want the specified item to be editable.
-    return YES;
-}
-
-- (void)tableView:(UITableView *)tableView commitEditingStyle:(UITableViewCellEditingStyle)editingStyle forRowAtIndexPath:(NSIndexPath *)indexPath
-{
-    if (editingStyle == UITableViewCellEditingStyleDelete) {
-        NSManagedObjectContext *context = [self.fetchedResultsController managedObjectContext];
-        [context deleteObject:[self.fetchedResultsController objectAtIndexPath:indexPath]];
-        
-        NSError *error = nil;
-        if (![context save:&error]) {
-             // Replace this implementation with code to handle the error appropriately.
-             // abort() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development. 
-            NSLog(@"Unresolved error %@, %@", error, [error userInfo]);
-            abort();
-        }
-    }   
-}
-
-- (BOOL)tableView:(UITableView *)tableView canMoveRowAtIndexPath:(NSIndexPath *)indexPath
-{
-    // The table view should not be re-orderable.
-    return NO;
-}
-
+// In a storyboard-based application, you will often want to do a little preparation before navigation
 - (void)prepareForSegue:(UIStoryboardSegue *)segue sender:(id)sender
 {
-    if ([[segue identifier] isEqualToString:@"showDetail"]) {
-        NSIndexPath *indexPath = [self.tableView indexPathForSelectedRow];
-        NSManagedObject *object = [[self fetchedResultsController] objectAtIndexPath:indexPath];
-        [[segue destinationViewController] setDetailItem:object];
+    // Get the new view controller using [segue destinationViewController].
+    // Pass the selected object to the new view controller.
+}
+*/
+
+#pragma mark - Load Data
+- (IBAction)refresh:(id)sender
+{
+    [self loadWether];
+}
+
+-(void) loadWether
+{
+    NSString *string = [NSString stringWithFormat:@"%@?w=%@&u=c", BaseURLString, CityWOEIDString];
+    NSURL *url = [NSURL URLWithString:string];
+    
+    AFHTTPRequestOperationManager *manager = [[AFHTTPRequestOperationManager alloc] initWithBaseURL:url];
+    [manager setResponseSerializer:[AFXMLParserResponseSerializer new]];
+    manager.responseSerializer.acceptableContentTypes = [NSSet setWithObject:@"application/rss+xml"];
+    [manager GET:string parameters:nil success:^(AFHTTPRequestOperation *operation, id responseObject) {
+        NSLog(@"Data: %@", responseObject);
+        
+        NSXMLParser *XMLParser = (NSXMLParser *)responseObject;
+        [XMLParser setShouldProcessNamespaces:YES];
+        
+        // Leave these commented for now (you first need to add the delegate methods)
+        XMLParser.delegate = self;
+        [XMLParser parse];
+        [self configureUI];
+
+    } failure:^(AFHTTPRequestOperation *operation, NSError *error) {
+        NSLog(@"Error: %@", error);
+        
+        UIAlertView *alertView = [[UIAlertView alloc] initWithTitle:@"Error Retrieving Weather"
+                                                            message:[error localizedDescription]
+                                                           delegate:nil
+                                                  cancelButtonTitle:@"Ok"
+                                                  otherButtonTitles:nil];
+        [alertView show];
+    }];
+    
+}
+
+-(void) loadData
+{
+    YWAppDelegate *appDelegate = (YWAppDelegate*)[[UIApplication sharedApplication] delegate];
+    NSManagedObjectContext *context = appDelegate.managedObjectContext;
+    NSFetchRequest *request = [[NSFetchRequest alloc]init];
+    NSEntityDescription *entity = [NSEntityDescription entityForName:@"Forecast" inManagedObjectContext:managedObjectContext];
+    [request setEntity:entity];
+    
+    NSSortDescriptor *sortDescriptor = [[NSSortDescriptor alloc] initWithKey:@"formattedDate" ascending:YES];
+    NSArray *sortDescriptors = [[NSArray alloc] initWithObjects:sortDescriptor, nil];
+    [request setSortDescriptors:sortDescriptors];
+    
+    NSError *error;
+    NSMutableArray *mutableFetchResults = [[context executeFetchRequest:request error:&error] mutableCopy];
+    if (mutableFetchResults == nil) {
+        //Обработка ошибки
+        NSLog(@"Error during loading data : %@", error);
+        self.items = [[NSMutableArray alloc] init];
+    }
+    
+    self.items = mutableFetchResults;
+    
+}
+
+#pragma mark - UI Configurations
+-(void) configureUI
+{
+    if(items_)
+    {
+        Forecast *currentForecast;
+        NSLog(@"items in array now: %lu", (unsigned long)[items_ count]);
+        if ([items_ count] > 0)
+        {
+            currentForecast = [items_ objectAtIndex:0];
+    
+            //self.todayDay.text = todayForecast.day;
+            self.todayDate.text = [NSString stringWithFormat:@"%@, %@", currentForecast.day, currentForecast.date];
+            self.todayLow.text = [NSString stringWithFormat:@"+%@", currentForecast.low];
+            self.todayHigh.text = [NSString stringWithFormat:@"+%@", currentForecast.high];
+            self.todayText.text = currentForecast.text;
+            
+            NSURL *url = [NSURL URLWithString: [NSString stringWithFormat:@"%@%@.gif", BaseImageURLString, currentForecast.code]];
+            NSURLRequest *request = [NSURLRequest requestWithURL:url];
+            UIImage *placeholderImage = [UIImage imageNamed:@"placeholder"];
+            [self.todayImage setImageWithURLRequest:request
+                                   placeholderImage:placeholderImage
+                                            success:^(NSURLRequest *request, NSHTTPURLResponse *response, UIImage *image) {
+            
+                                                self.todayImage.image = image;
+                                                [self.todayImage setNeedsLayout];
+            
+                                            } failure:nil];
+        }
+        
+        if([items_ count] > 1)
+        {
+            currentForecast = [items_ objectAtIndex:1];
+    
+            self.tomorrowDate.text = [NSString stringWithFormat:@"%@, %@", currentForecast.day, currentForecast.date];
+            self.tommorowLow.text = [NSString stringWithFormat:@"+%@", currentForecast.low];
+            self.tommorowHigh.text = [NSString stringWithFormat:@"+%@", currentForecast.high];
+            self.tomorrowText.text = currentForecast.text;
+            
+            NSURL *url = [NSURL URLWithString: [NSString stringWithFormat:@"%@%@.gif", BaseImageURLString, currentForecast.code]];
+            NSURLRequest *request = [NSURLRequest requestWithURL:url];
+            UIImage *placeholderImage = [UIImage imageNamed:@"placeholder"];
+            [self.tomorrowImage setImageWithURLRequest:request
+                                   placeholderImage:placeholderImage
+                                            success:^(NSURLRequest *request, NSHTTPURLResponse *response, UIImage *image) {
+                                                
+                                                self.tomorrowImage.image = image;
+                                                [self.tomorrowImage setNeedsLayout];
+                                                
+                                            } failure:nil];
+
+        }
     }
 }
 
-#pragma mark - Fetched results controller
-
-- (NSFetchedResultsController *)fetchedResultsController
+#pragma mark - xml delegate override
+- (void)parserDidStartDocument:(NSXMLParser *)parser
 {
-    if (_fetchedResultsController != nil) {
-        return _fetchedResultsController;
+    YWAppDelegate *appDelegate = (YWAppDelegate*)[[UIApplication sharedApplication] delegate];
+    NSManagedObjectContext *context = appDelegate.managedObjectContext;
+    
+    NSFetchRequest * fetch = [[NSFetchRequest alloc] init];
+    [fetch setEntity:[NSEntityDescription entityForName:@"Forecast" inManagedObjectContext:context]];
+    NSArray * result = [context executeFetchRequest:fetch error:nil];
+    for (id forecast in result)
+        [context deleteObject:forecast];
+    
+    NSError *error;
+    if (![context save:&error]) {
+        NSLog(@"Whoops, couldn't clear db: %@", [error localizedDescription]);
     }
-    
-    NSFetchRequest *fetchRequest = [[NSFetchRequest alloc] init];
-    // Edit the entity name as appropriate.
-    NSEntityDescription *entity = [NSEntityDescription entityForName:@"Event" inManagedObjectContext:self.managedObjectContext];
-    [fetchRequest setEntity:entity];
-    
-    // Set the batch size to a suitable number.
-    [fetchRequest setFetchBatchSize:20];
-    
-    // Edit the sort key as appropriate.
-    NSSortDescriptor *sortDescriptor = [[NSSortDescriptor alloc] initWithKey:@"timeStamp" ascending:NO];
-    NSArray *sortDescriptors = @[sortDescriptor];
-    
-    [fetchRequest setSortDescriptors:sortDescriptors];
-    
-    // Edit the section name key path and cache name if appropriate.
-    // nil for section name key path means "no sections".
-    NSFetchedResultsController *aFetchedResultsController = [[NSFetchedResultsController alloc] initWithFetchRequest:fetchRequest managedObjectContext:self.managedObjectContext sectionNameKeyPath:nil cacheName:@"Master"];
-    aFetchedResultsController.delegate = self;
-    self.fetchedResultsController = aFetchedResultsController;
-    
-	NSError *error = nil;
-	if (![self.fetchedResultsController performFetch:&error]) {
-	     // Replace this implementation with code to handle the error appropriately.
-	     // abort() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development. 
-	    NSLog(@"Unresolved error %@, %@", error, [error userInfo]);
-	    abort();
-	}
-    
-    return _fetchedResultsController;
-}    
 
-- (void)controllerWillChangeContent:(NSFetchedResultsController *)controller
-{
-    [self.tableView beginUpdates];
 }
 
-- (void)controller:(NSFetchedResultsController *)controller didChangeSection:(id <NSFetchedResultsSectionInfo>)sectionInfo
-           atIndex:(NSUInteger)sectionIndex forChangeType:(NSFetchedResultsChangeType)type
+- (void)parser:(NSXMLParser *)parser didStartElement:(NSString *)elementName namespaceURI:(NSString *)namespaceURI qualifiedName:(NSString *)qName attributes:(NSDictionary *)attributeDict
 {
-    switch(type) {
-        case NSFetchedResultsChangeInsert:
-            [self.tableView insertSections:[NSIndexSet indexSetWithIndex:sectionIndex] withRowAnimation:UITableViewRowAnimationFade];
-            break;
-            
-        case NSFetchedResultsChangeDelete:
-            [self.tableView deleteSections:[NSIndexSet indexSetWithIndex:sectionIndex] withRowAnimation:UITableViewRowAnimationFade];
-            break;
+    //NSLog(@"%@", elementName);
+    NSString *city;
+    if ([elementName isEqualToString:@"location"])
+    {
+        self.cityLabel.text = [attributeDict valueForKey:@"city"];
+    }
+    if([elementName isEqualToString:@"forecast"])
+    {
+        YWAppDelegate *appDelegate = (YWAppDelegate*)[[UIApplication sharedApplication] delegate];
+        NSManagedObjectContext *context = appDelegate.managedObjectContext;
+        NSManagedObject *forecast = [NSEntityDescription
+                                     insertNewObjectForEntityForName:@"Forecast"
+                                     inManagedObjectContext:context];
+        [forecast setValue:[attributeDict valueForKey:@"day"] forKey:@"day"];
+        [forecast setValue:[attributeDict valueForKey:@"date"] forKey:@"date"];
+        [forecast setValue:[attributeDict valueForKey:@"low"] forKey:@"low"];
+        [forecast setValue:[attributeDict valueForKey:@"high"] forKey:@"high"];
+        [forecast setValue:[attributeDict valueForKey:@"text"] forKey:@"text"];
+        [forecast setValue:[attributeDict valueForKey:@"code"] forKey:@"code"];
+        NSLog(@"City: %@", city);
+        
+        NSDateFormatter *dateFormatter = [[NSDateFormatter alloc] init];
+        [dateFormatter setDateFormat:@"EEE, dd MMM y"];
+        NSDate *date = [dateFormatter dateFromString:[NSString stringWithFormat:@"%@, %@", [attributeDict valueForKey:@"day"],[attributeDict valueForKey:@"date"]]];
+        //NSLog(@"Date: %@", [date description]);
+        [forecast setValue:date forKey:@"formattedDate"];
     }
 }
 
-- (void)controller:(NSFetchedResultsController *)controller didChangeObject:(id)anObject
-       atIndexPath:(NSIndexPath *)indexPath forChangeType:(NSFetchedResultsChangeType)type
-      newIndexPath:(NSIndexPath *)newIndexPath
+- (void) parserDidEndDocument:(NSXMLParser *)parser
 {
-    UITableView *tableView = self.tableView;
-    
-    switch(type) {
-        case NSFetchedResultsChangeInsert:
-            [tableView insertRowsAtIndexPaths:@[newIndexPath] withRowAnimation:UITableViewRowAnimationFade];
-            break;
-            
-        case NSFetchedResultsChangeDelete:
-            [tableView deleteRowsAtIndexPaths:@[indexPath] withRowAnimation:UITableViewRowAnimationFade];
-            break;
-            
-        case NSFetchedResultsChangeUpdate:
-            [self configureCell:[tableView cellForRowAtIndexPath:indexPath] atIndexPath:indexPath];
-            break;
-            
-        case NSFetchedResultsChangeMove:
-            [tableView deleteRowsAtIndexPaths:@[indexPath] withRowAnimation:UITableViewRowAnimationFade];
-            [tableView insertRowsAtIndexPaths:@[newIndexPath] withRowAnimation:UITableViewRowAnimationFade];
-            break;
-    }
+    [items_ removeLastObject];
+    [self loadData];
+    [self configureUI];
 }
-
-- (void)controllerDidChangeContent:(NSFetchedResultsController *)controller
-{
-    [self.tableView endUpdates];
-}
-
-/*
-// Implementing the above methods to update the table view in response to individual changes may have performance implications if a large number of changes are made simultaneously. If this proves to be an issue, you can instead just implement controllerDidChangeContent: which notifies the delegate that all section and object changes have been processed. 
- 
- - (void)controllerDidChangeContent:(NSFetchedResultsController *)controller
-{
-    // In the simplest, most efficient, case, reload the table view.
-    [self.tableView reloadData];
-}
- */
-
-- (void)configureCell:(UITableViewCell *)cell atIndexPath:(NSIndexPath *)indexPath
-{
-    NSManagedObject *object = [self.fetchedResultsController objectAtIndexPath:indexPath];
-    cell.textLabel.text = [[object valueForKey:@"timeStamp"] description];
-}
-
 @end
