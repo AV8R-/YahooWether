@@ -18,8 +18,6 @@
 @implementation YWMasterViewController
 @synthesize managedObjectContext;
 @synthesize items = items_;
-@synthesize todayForecast = todayForecast_;
-@synthesize tomorrowForecast = tomorrowForecast_;
 
 - (id)initWithNibName:(NSString *)nibNameOrNil bundle:(NSBundle *)nibBundleOrNil
 {
