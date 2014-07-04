@@ -122,6 +122,29 @@
     
     self.items = mutableFetchResults;
     
+    NSMutableArray *deleteQueue = [[NSMutableArray alloc] init];
+    
+    for (Forecast *forecast in items_)
+    {
+        NSDate *currentDate = [[NSDate alloc] initWithTimeIntervalSinceNow:0];
+        unsigned int flags = NSYearCalendarUnit | NSMonthCalendarUnit | NSDayCalendarUnit;
+        NSCalendar* calendar = [NSCalendar currentCalendar];
+        
+        NSDateComponents* components = [calendar components:flags fromDate:currentDate];
+        
+        NSDate* dateOnly = [calendar dateFromComponents:components];
+        
+        if ([forecast.formattedDate compare:dateOnly] == NSOrderedAscending)
+            [deleteQueue addObject:forecast];
+    }
+    
+    for(id forecast in deleteQueue)
+    {
+        [context deleteObject:forecast];
+        [items_ removeObject:forecast];
+    }
+    
+    [deleteQueue removeAllObjects];
 }
 
 #pragma mark - UI Configurations
@@ -201,7 +224,6 @@
 - (void)parser:(NSXMLParser *)parser didStartElement:(NSString *)elementName namespaceURI:(NSString *)namespaceURI qualifiedName:(NSString *)qName attributes:(NSDictionary *)attributeDict
 {
     //NSLog(@"%@", elementName);
-    NSString *city;
     if ([elementName isEqualToString:@"location"])
     {
         self.cityLabel.text = [attributeDict valueForKey:@"city"];
@@ -219,12 +241,11 @@
         [forecast setValue:[attributeDict valueForKey:@"high"] forKey:@"high"];
         [forecast setValue:[attributeDict valueForKey:@"text"] forKey:@"text"];
         [forecast setValue:[attributeDict valueForKey:@"code"] forKey:@"code"];
-        NSLog(@"City: %@", city);
         
         NSDateFormatter *dateFormatter = [[NSDateFormatter alloc] init];
-        [dateFormatter setDateFormat:@"EEE, dd MMM y"];
-        NSDate *date = [dateFormatter dateFromString:[NSString stringWithFormat:@"%@, %@", [attributeDict valueForKey:@"day"],[attributeDict valueForKey:@"date"]]];
-        //NSLog(@"Date: %@", [date description]);
+        [dateFormatter setDateFormat:@"EEE, dd MMM y hh:mm"];
+        NSDate *date = [dateFormatter dateFromString:[NSString stringWithFormat:@"%@, %@ 04:00", [attributeDict valueForKey:@"day"],[attributeDict valueForKey:@"date"]]];
+        NSLog(@"Date: %@", [date description]);
         [forecast setValue:date forKey:@"formattedDate"];
     }
 }
