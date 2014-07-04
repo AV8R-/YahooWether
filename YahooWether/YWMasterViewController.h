@@ -7,7 +7,7 @@
 //
 
 static NSString * const BaseURLString = @"http://weather.yahooapis.com/forecastrss";
-static NSString * const CityWOEIDString = @"2442047";
+static NSString * const CityWOEIDString = @"919163"; //@"2442047" //WOEID for Los Angeles;
 static NSString * const BaseImageURLString = @"http://l.yimg.com/a/i/us/we/52/";
 
 #import <UIKit/UIKit.h>

@@ -35,11 +35,11 @@
     [super viewDidLoad];
     // Do any additional setup after loading the view.
     
-    
 }
 
 -(void)viewWillAppear:(BOOL)animated
 {
+    [self configureUI];
     [self loadData];
     [self configureUI];
     [self loadWether];
@@ -154,6 +154,7 @@
     {
         Forecast *currentForecast;
         NSLog(@"items in array now: %lu", (unsigned long)[items_ count]);
+        //Setting up UI for today
         if ([items_ count] > 0)
         {
             currentForecast = [items_ objectAtIndex:0];
@@ -176,7 +177,15 @@
             
                                             } failure:nil];
         }
+        else //if we don't have any forecast for today
+        {
+            NSDate *date = [[NSDate alloc] initWithTimeIntervalSinceNow:0];
+            NSDateFormatter *formatter = [[NSDateFormatter alloc] init];
+            [formatter setDateFormat:@"EEE, dd MMM y"];
+            self.todayDate.text = [formatter stringFromDate:date];
+        }
         
+        //Setting up UI for tomorrow
         if([items_ count] > 1)
         {
             currentForecast = [items_ objectAtIndex:1];
@@ -198,6 +207,13 @@
                                                 
                                             } failure:nil];
 
+        }
+        else //if we don't have any forecast for tomorrow
+        {
+            NSDate *date = [[NSDate alloc] initWithTimeIntervalSinceNow:86400];
+            NSDateFormatter *formatter = [[NSDateFormatter alloc] init];
+            [formatter setDateFormat:@"EEE, dd MMM y"];
+            self.tomorrowDate.text = [formatter stringFromDate:date];
         }
     }
 }
